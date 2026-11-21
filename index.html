@@ -729,11 +729,11 @@ function updParty(q,dt){
 function burst(x,y,n,col,sp,life){for(let i=0;i<n;i++){const a=rand(0,TAU),s=rand(.3,1)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-20,l:life*rand(.6,1),m:life,c:col,s:rand(2,4)});}}
 function ftext(x,y,s,c){texts.push({x,y,s,c,l:1.1});}
 let toastT=0;
-function toast(s,d){if(state==='menu')return;const t=$('toast');t.textContent=s;t.classList.add('on');toastT=d||2.6;}
+function toast(s,d,hint){if(state==='menu')return;const t=$('toast');t.textContent=s;t.classList.add('on');toastT=d||2.6;G.hintToast=!!hint;}
 
 /* ---------- run flow ---------- */
 const fmt=s=>Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
-function newG(){G={score:0,perks:{},hearts:3+save.up.heart,maxH:3+save.up.heart,combo:0,comboT:0,time:0,phase:'gather',banked:0,callT:0,callT0:30,shipT:0,escCd:0,hint:0,rCd:0,hiss:0,caught:0,carryMsg:0,dispT:5,radio:0,talk:null,bag:0,sweet:0,plants:0,paid:0,paidB:0,cont:0};calcStats();}
+function newG(){G={score:0,perks:{},hearts:3+save.up.heart,maxH:3+save.up.heart,combo:0,comboT:0,time:0,phase:'gather',banked:0,callT:0,callT0:30,shipT:0,escCd:0,hint:0,hintTime:0,hintToast:false,rCd:0,hiss:0,caught:0,carryMsg:0,dispT:5,radio:0,talk:null,bag:0,sweet:0,plants:0,paid:0,paidB:0,cont:0};calcStats();}
 function initWorld(){
   W=genWorld();const c=W.clear;
   P={x:c.x,y:c.y+36,face:Math.PI/2,walk:0,moving:false,energy:ST.maxE,dashT:0,dashCd:0,inv:1.2,hidden:false,inBush:null,blown:false,carry:[],bikeT:0,burrowCd:0,diveT:0,beamT:0,mood:0,idle:0,lookA:null,gone:false,pocket:[]};
@@ -1037,6 +1037,8 @@ function updChop(h,dt){
   h.th-=dt;if(h.th<=0){h.th=.13;const v=clamp(1-d/750,0,1);if(v>.03)tone(48,.09,'sine',.12*v);}
 }
 const HINTS=[[5,'Drag anywhere to move.'],[11,'People in the forest have seen the pieces. Walk up to anyone with a yellow ! over their head and tap “Tap to talk”.'],[18,'Keep out of the light beams.'],[26,'Bushes hide you. Burrows are tunnels to somewhere else.'],[31,'Cross the river by the road bridges. The water will sweep you away.'],[36,'Carry one piece at a time. A gold arrow points the way home.'],[46,'Pause at any time to read your leads.']];
+function npcNearOrSpeaking(){if(G.talk)return true;for(const n of W.npcs)if(n.show>0)return true;return false;}
+function clearHintToast(){if(!G.hintToast)return;G.hintToast=false;toastT=0;$('toast').classList.remove('on');}
 function update(dt){
   const w=W,p=P,c=w.clear;G.time+=dt;
   p.dashT=Math.max(0,p.dashT-dt);p.dashCd=Math.max(0,p.dashCd-dt);p.inv=Math.max(0,p.inv-dt);p.burrowCd=Math.max(0,p.burrowCd-dt);p.diveT=Math.max(0,p.diveT-dt);
@@ -1107,7 +1109,12 @@ function update(dt){
   if(w.party)updParty(w.party,dt);
   if(w.news)updNews(w.news,dt);
   updNpcs(dt);if(state!=='play')return;
-  if(!save.seen&&G.hint<HINTS.length&&G.time>HINTS[G.hint][0]){toast(HINTS[G.hint][1],3.4);G.hint++;}
+  if(!save.seen&&G.hint<HINTS.length){
+    const npcBusy=npcNearOrSpeaking();
+    if(npcBusy)clearHintToast();
+    else G.hintTime+=dt;
+    if(!npcBusy&&G.hintTime>HINTS[G.hint][0]){toast(HINTS[G.hint][1],3.4,true);G.hint++;}
+  }
   camTo(dt,false);hud();
 }
 function tick(dt){
@@ -1117,7 +1124,7 @@ function tick(dt){
   const vw=VW/Z,vh=VH/Z;
   for(const f of FF){f.x+=Math.cos(f.ph+T*.6)*14*dt;f.y+=Math.sin(f.ph*1.7+T*.5)*10*dt;
     if(f.x<cam.x-60||f.x>cam.x+vw+60||f.y<cam.y-60||f.y>cam.y+vh+60){f.x=cam.x+rand(-40,vw+40);f.y=cam.y+rand(-40,vh+40);}}
-  if(toastT>0){toastT-=dt;if(toastT<=0)$('toast').classList.remove('on');}
+  if(toastT>0){toastT-=dt;if(toastT<=0){$('toast').classList.remove('on');G.hintToast=false;}}
 }
 function camTo(dt,snap){const vw=VW/Z,vh=VH/Z;let tx=P.x-vw/2,ty=P.y-24-vh/2;
   tx=W.w>vw?clamp(tx,0,W.w-vw):(W.w-vw)/2;ty=W.h>vh?clamp(ty,0,W.h-vh):(W.h-vh)/2;
