@@ -586,7 +586,7 @@ function drawWall(g,cx,cy,vw,vh){
 function beam(g,l,r,c0,c1){const gr=g.createRadialGradient(l.x,l.y,4,l.x,l.y,r);gr.addColorStop(0,c0);gr.addColorStop(1,c1);g.fillStyle=gr;
   g.beginPath();g.moveTo(l.x+Math.cos(l.a)*5,l.y-(l.cam?40:42)+Math.sin(l.a)*3);g.arc(l.x,l.y,r,l.a-l.half,l.a+l.half);g.closePath();g.fill();}
 const LEAD={kid:'A trick-or-treater is hiding just south-west of the clearing.',teens:'Teenagers are partying round a campfire, far to the south.',fisher:'An old man fishes from the pier on the river, to the west.',gazer:'A stargazer called Mabel watches from the lookout, north-east.',reporter:'A news crew is filming by the east road.',ranger:'Ranger Bill has a cabin across the river, north-west, over the north bridge.'};
-const TASK={kid:'Fetch the kid’s candy bucket from the camp to the west.',teens:'Bring the teenagers 25 candies.',fisher:'Find the tackle box, downstream on the east bank of the river.',gazer:'Find a quarter by the dead end sign on the east road.',reporter:'Fetch the news crew’s spare tape from the camp west of the clearing.',ranger:'Find Biscuit the dog at the teenagers’ party and walk him back to the ranger.'};
+const TASK={kid:'Fetch the kid’s candy bucket from the camp to the north-west.',teens:'Bring the teenagers 25 candies.',fisher:'Find the tackle box, downstream on the east bank of the river.',gazer:'Find a quarter by the dead end sign on the east road.',reporter:'Fetch the news crew’s spare tape from the camp west of the clearing.',ranger:'Find Biscuit the dog at the teenagers’ party and walk him back to the ranger.'};
 const TASK2={teens:'Fetch batteries for the teenagers from the news van on the east road.',fisher:'Bring the fisherman 10 candies for bait.',reporter:'Stay in the camera light for five seconds.'};
 const SPOT={kid:'A piece is waiting beside the trick-or-treater.',teens:'A piece is waiting at the teenagers’ campfire.',jetty:'A piece is waiting by the pier.',lab:'A piece is locked in a case at the science camp, south-west across the river.',block:'A piece is at the sheriff’s roadblock on the north road.',sheriff:'The sheriff carries the last piece. Sneak up behind him and take it.'};
 const has=id=>P.pocket.indexOf(id)>=0,give=id=>{P.pocket.splice(P.pocket.indexOf(id),1);};
@@ -602,6 +602,47 @@ const MEET={
   ranger:'What in the… Easy, now. So you’re what all those deputies are tearing up my forest for? And you talk in pictures. Huh.',
   reporter:'Oh my… Dave. DAVE. Are you getting this? It’s showing me a picture! The sheriff has every deputy in the county out looking for you!'};
 function talk(){if(state!=='play'||!G.talk)return;const n=G.talk;if(n.cd>0||d2(P.x,P.y,n.x,n.y)>100)return;talkTo(n);}
+function npcIsLastChainLine(n){
+  if(!n.met)return false;
+  if(n.st>=2)return true;
+  switch(n.id){
+    case 'kid':
+      if(n.st===0)return false;
+      if(n.st===1){if(has('bucket'))return n.show>0;return true;}
+      return true;
+    case 'teens':
+      if(n.st===0)return false;
+      if(n.st===1&&!n.s2)return G.bag<25;
+      if(n.st===1)return has('batteries')?n.show>0:true;
+      return true;
+    case 'fisher':
+      if(n.st===0)return false;
+      if(n.st===1&&!n.s2)return !has('box');
+      if(n.st===1)return G.bag>=10?n.show>0:G.bag<10;
+      return true;
+    case 'gazer':
+      if(n.st===0)return false;
+      if(n.st===1)return has('coin')?n.show>0:!has('coin');
+      return true;
+    case 'ranger':
+      if(n.st===0)return false;
+      if(n.st===1){const dg=W.dog;if(dg.follow&&d2(dg.x,dg.y,n.x,n.y)<170)return n.show>0;return true;}
+      return true;
+    case 'reporter':
+      if(n.st===0)return false;
+      if(n.st===1)return has('tape')?n.show>0:!has('tape');
+      return true;
+    default:return true;
+  }
+}
+function npcTalkLabel(n){
+  if(!n.met)return 'Tap to talk';
+  if(npcIsLastChainLine(n)){
+    if(n.show>0)return '';
+    return 'Tap to talk';
+  }
+  return 'Continue';
+}
 function know(id){const n=W.npcs.find(q=>q.id===id);if(n&&!n.known){n.known=true;toast('New lead. Pause to read it.',2.4);}}
 function reveal(at){const pt=W.parts.find(q=>q.at===at);pt.hid=false;burst(pt.x,pt.y-10,16,'#7df9e6',130,.7);sfx.part();G.score+=200;}
 function leads(){
@@ -633,9 +674,9 @@ function talkTo(n){
   if(!n.met){n.met=true;say(n,MEET[n.id]);return;}
   {
     if(n.id==='kid'){
-      if(n.st===0){n.st=1;W.items.find(q=>q.id==='bucket').on=true;say(n,'Don’t tell them I’m here! I dropped my candy bucket at the camp to the west when the lights came down. Get it back and you can have the space thing I found.');}
+      if(n.st===0){n.st=1;W.items.find(q=>q.id==='bucket').on=true;say(n,'Don’t tell them I’m here! I dropped my candy bucket at the camp to the north-west when the lights came down. Get it back and you can have the space thing I found.');hintsUnlockedAfterKid();}
       else if(n.st===1){if(has('bucket')){give('bucket');n.st=2;W.props.find(q=>q.k==='kid').pail=true;reveal('kid');know('teens');say(n,'My candy! Here, it’s yours. I dropped sweets all over these woods. The big kids at the campfire down south found a space thing too.');}
-        else say(n,'The camp is just west of here. There’s a man with a torch.');}
+        else say(n,'The camp is just north-west of here. There’s a man with a torch.');}
       else say(n,'Your friends dropped glowing flowers all over the woods, too. Happy Halloween, space guy.');}
     else if(n.id==='teens'){
       if(n.st===0){n.st=1;say(n,'We found that glowing thing, little dude. Bring us 25 candies for the munchies and it’s yours.');}
@@ -706,6 +747,8 @@ function bubble(g,x,y,line,al,cx,vw){g.font='20px VT323, monospace';const bw=Mat
   g.fillStyle='rgba(10,15,36,.93)';rr(g,bx,by,bw,bh,6);g.fill();g.strokeStyle='#19e3c5';g.lineWidth=2;g.stroke();
   g.fillStyle='rgba(10,15,36,.93)';g.beginPath();g.moveTo(x-7,by+bh-1);g.lineTo(x,by+bh+9);g.lineTo(x+7,by+bh-1);g.closePath();g.fill();
   g.fillStyle='#eaf6ff';g.textAlign='center';ls.forEach((s,i)=>g.fillText(s,bx+bw/2,by+21+i*19));g.globalAlpha=1;}
+const kidNpc=()=>W.npcs.find(q=>q.id==='kid');
+function kidTutorial(){const k=kidNpc();return k&&k.st===0&&(k.show>0||(G.talk===k&&k.met)||d2(P.x,P.y,k.x,k.y)<220);}
 const LK={x:4930,y:705}; // where the radio is set up, beside the telescope
 const NEWS=['Strange lights were seen over the pines tonight.','The sheriff’s department is combing the forest.','Witnesses describe a small brown creature.','Deputies have set up a roadblock on the north road.','Residents are asked to stay indoors.','Officials say there is no cause for alarm.','One caller swears it waved at him.','We’ll stay on the air until it is found.'];
 function updNews(n,dt){
@@ -733,7 +776,7 @@ function toast(s,d,hint){if(state==='menu')return;const t=$('toast');t.textConte
 
 /* ---------- run flow ---------- */
 const fmt=s=>Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
-function newG(){G={score:0,perks:{},hearts:3+save.up.heart,maxH:3+save.up.heart,combo:0,comboT:0,time:0,phase:'gather',banked:0,callT:0,callT0:30,shipT:0,escCd:0,hint:0,hintTime:0,hintToast:false,rCd:0,hiss:0,caught:0,carryMsg:0,dispT:5,radio:0,talk:null,bag:0,sweet:0,plants:0,paid:0,paidB:0,cont:0};calcStats();}
+function newG(){G={score:0,perks:{},hearts:3+save.up.heart,maxH:3+save.up.heart,combo:0,comboT:0,time:0,phase:'gather',banked:0,callT:0,callT0:30,shipT:0,escCd:0,hint:0,hintTime:0,hintToast:false,kidHintsOk:false,rCd:0,hiss:0,caught:0,carryMsg:0,dispT:5,radio:0,talk:null,bag:0,sweet:0,plants:0,paid:0,paidB:0,cont:0};calcStats();}
 function initWorld(){
   W=genWorld();const c=W.clear;
   P={x:c.x,y:c.y+36,face:Math.PI/2,walk:0,moving:false,energy:ST.maxE,dashT:0,dashCd:0,inv:1.2,hidden:false,inBush:null,blown:false,carry:[],bikeT:0,burrowCd:0,diveT:0,beamT:0,mood:0,idle:0,lookA:null,gone:false,pocket:[]};
@@ -981,7 +1024,8 @@ function updAgent(a,dt){
   const p=P;
   a.tired=Math.max(0,a.tired-dt);
   if(a.stun>0){a.stun-=dt;if(a.stun<=0){a.state='search';a.t=1.4;a.alert=0;}return;}
-  const dx=p.x-a.x,dy=p.y-a.y,d=Math.hypot(dx,dy),range=a.range*ST.vis,vis=!p.hidden&&p.inv<=0&&G.phase!=='beam';
+  const dx=p.x-a.x,dy=p.y-a.y,d=Math.hypot(dx,dy),range=a.range*ST.vis,tut=kidTutorial(),vis=!p.hidden&&p.inv<=0&&G.phase!=='beam'&&!tut;
+  if(tut){const k=kidNpc();const kd=d2(a.x,a.y,k.x,k.y);if(kd<230){const kx=(a.x-k.x)/(kd||1),ky=(a.y-k.y)/(kd||1);if(a.state==='chase'||a.state==='sus'){a.state='patrol';a.alert=0;a.lose=0;}a.x+=kx*100*dt;a.y+=ky*100*dt;}}
   let sees=false;
   if(vis)sees=a.state==='chase'?d<range*1.35:(d<range&&Math.abs(angd(Math.atan2(dy,dx),a.a))<a.half)||d<30;
   let sp=0,tx=a.tx,ty=a.ty;
@@ -1037,7 +1081,19 @@ function updChop(h,dt){
   h.th-=dt;if(h.th<=0){h.th=.13;const v=clamp(1-d/750,0,1);if(v>.03)tone(48,.09,'sine',.12*v);}
 }
 const HINTS=[[5,'Drag anywhere to move.'],[11,'People in the forest have seen the pieces. Walk up to anyone with a yellow ! over their head and tap “Tap to talk”.'],[18,'Keep out of the light beams.'],[26,'Bushes hide you. Burrows are tunnels to somewhere else.'],[31,'Cross the river by the road bridges. The water will sweep you away.'],[36,'Carry one piece at a time. A gold arrow points the way home.'],[46,'Pause at any time to read your leads.']];
-function npcNearOrSpeaking(){if(G.talk)return true;for(const n of W.npcs)if(n.show>0)return true;return false;}
+function npcNearOrSpeaking(){
+  for(const n of W.npcs)if(n.show>0)return true;
+  const k=kidNpc();
+  return !!(k&&k.st===0&&k.met&&(k.show>0||G.talk===k));
+}
+function hintsUnlockedAfterKid(){
+  if(G.kidHintsOk)return;
+  const k=kidNpc();
+  if(!k||k.st<1)return;
+  G.kidHintsOk=true;
+  if(G.hint>=HINTS.length)return;
+  if(G.hintTime<HINTS[G.hint][0])G.hintTime=HINTS[G.hint][0];
+}
 function clearHintToast(){if(!G.hintToast)return;G.hintToast=false;toastT=0;$('toast').classList.remove('on');}
 function update(dt){
   const w=W,p=P,c=w.clear;G.time+=dt;
@@ -1108,12 +1164,12 @@ function update(dt){
   if(w.chop)updChop(w.chop,dt);
   if(w.party)updParty(w.party,dt);
   if(w.news)updNews(w.news,dt);
-  updNpcs(dt);if(state!=='play')return;
-  if(!save.seen&&G.hint<HINTS.length){
+  updNpcs(dt);hintsUnlockedAfterKid();if(state!=='play')return;
+  if(G.hint<HINTS.length){
     const npcBusy=npcNearOrSpeaking();
     if(npcBusy)clearHintToast();
     else G.hintTime+=dt;
-    if(!npcBusy&&G.hintTime>HINTS[G.hint][0]){toast(HINTS[G.hint][1],3.4,true);G.hint++;}
+    if(!npcBusy&&G.hintTime>=HINTS[G.hint][0]){toast(HINTS[G.hint][1],3.4,true);G.hint++;}
   }
   camTo(dt,false);hud();
 }
@@ -1142,7 +1198,7 @@ function hud(){
   setT('bag','Candy '+G.bag+(pocket?' · '+pocket:'')+(G.plants?' · Plants '+G.plants+'/6':''));
   setT('phase',G.phase==='calling'?'Ship lands in the clearing in '+Math.ceil(G.callT)+'s. Get back!':G.phase==='ship'?'The ship is in the clearing. Get into the beam!':G.radio===1?'Carry the radio to the lookout, north-east.':'');
   W.parts.forEach(pt=>{const cl=pt.banked?'bank':pt.taken?'carry':'';if(hc['p'+pt.k]!==cl){hc['p'+pt.k]=cl;pc[pt.k].className=cl;}});
-  {const tk=G.talk,bt=$('bTalk');if(tk&&G.phase!=='beam'){bt.classList.remove('hide');bt.style.transform='translate('+Math.round((tk.x-cam.x)*Z)+'px,'+Math.round((tk.y+16-cam.y)*Z)+'px) translate(-50%,0)';}else bt.classList.add('hide');}
+  {const tk=G.talk,bt=$('bTalk');if(tk&&G.phase!=='beam'){const lbl=npcTalkLabel(tk);if(lbl){if(hc.bTalk!==lbl){hc.bTalk=lbl;bt.textContent=lbl;}bt.classList.remove('hide');bt.style.transform='translate('+Math.round((tk.x-cam.x)*Z)+'px,'+Math.round((tk.y+16-cam.y)*Z)+'px) translate(-50%,0)';}else{bt.classList.add('hide');hc.bTalk='';}}else{bt.classList.add('hide');hc.bTalk='';}}
   const dive=!!nearBurrow()&&P.burrowCd<=0,lbl=dive?'Dive':'Dash',cls=dive?'dive':(P.energy<ST.dashCost?'low':'');
   if(hc.act!==lbl+cls){hc.act=lbl+cls;const b=$('bAct');b.textContent=lbl;b.className=cls;}
 }
@@ -1206,12 +1262,20 @@ function drawPlayer(g){
   }
   if(p.inWater){g.fillStyle='#236a8c';el(g,0,-3,22,10);g.fill();g.strokeStyle='rgba(190,232,248,.7)';g.lineWidth=2;el(g,0,-6,21+Math.sin(T*7)*2,8);g.stroke();}
   if(G.radio===1&&state!=='menu'){g.save();g.translate(0,-66+bob);g.scale(.42,.42);for(const pt of W.parts){const q=RP[pt.k];g.save();g.translate(q[0],q[1]);g.scale(q[2],q[2]);drawPart(g,pt.k);g.restore();}g.restore();}
-  if(p.holo>0&&state==='play'){const al=Math.min(1,p.holo*2),hy=-86+bob+Math.sin(T*3)*2;g.save();g.globalAlpha*=al;
-    g.strokeStyle='rgba(125,249,230,.45)';g.lineWidth=1.5;g.beginPath();g.moveTo(-ax,ay-2);g.lineTo(-6,hy+15);g.moveTo(ax,ay-2);g.lineTo(6,hy+15);g.stroke();
-    g.fillStyle='rgba(25,227,197,.24)';g.beginPath();g.arc(0,hy,18,0,TAU);g.fill();g.strokeStyle='rgba(125,249,230,.85)';g.lineWidth=2;g.setLineDash([4,4]);g.lineDashOffset=-T*14;g.beginPath();g.arc(0,hy,18,0,TAU);g.stroke();g.setLineDash([]);
-    g.translate(0,hy);g.scale(1.15,1.15);drawPart(g,p.holoK);g.restore();}
   p.carry.forEach((pt,i)=>{g.save();g.translate((i-(p.carry.length-1)/2)*20,-58+bob+Math.sin(T*3+i)*2);g.scale(.8,.8);drawPart(g,pt.k);g.restore();});
   g.restore();
+}
+function drawPlayerHolo(g){
+  const p=P;if(p.holo<=0||state!=='play')return;
+  const idle=p.idle||0,md=G.phase==='beam'?3:Math.max(p.mood||0,p.inWater||p.cold>0?1:0),still=md===0&&!p.moving;
+  let lift=0,sc=1;if(G.phase==='beam'){const f=1-p.beamT/1.6;lift=f*f*150;sc=1-f*.6;}
+  const bob=p.moving?Math.sin(p.walk*2)*2:Math.sin(T*2.2)*1,by=p.bikeT>0?-13:0;
+  const dr=md===3?0:md===2?1:md===1?-.6:still?.25+clamp((idle-1)/1.5,0,1)*.6:.25;
+  const ax=9+dr*4,ay=-42+dr*5+bob+(md===3?Math.sin(T*10)*1.5:0),hy=-86+bob+Math.sin(T*3)*2,al=Math.min(1,p.holo*2);
+  g.save();g.translate(p.x,p.y-lift*sc);g.scale(sc,sc);g.translate(0,by);g.globalAlpha=al;
+  g.strokeStyle='rgba(125,249,230,.45)';g.lineWidth=1.5;g.beginPath();g.moveTo(-ax,ay-2);g.lineTo(-6,hy+15);g.moveTo(ax,ay-2);g.lineTo(6,hy+15);g.stroke();
+  g.fillStyle='rgba(25,227,197,.24)';g.beginPath();g.arc(0,hy,18,0,TAU);g.fill();g.strokeStyle='rgba(125,249,230,.85)';g.lineWidth=2;g.setLineDash([4,4]);g.lineDashOffset=-T*14;g.beginPath();g.arc(0,hy,18,0,TAU);g.stroke();g.setLineDash([]);
+  g.translate(0,hy);g.scale(1.15,1.15);drawPart(g,p.holoK);g.restore();
 }
 function drawAgent(g,a){
   const st=a.stun>0?0:Math.sin(a.walk*2);
@@ -1354,6 +1418,7 @@ function render(){
     if(n.show>0){bubble(g,n.x,top,n.line,Math.min(1,n.show*2.5),cx,vw);if(n.id==='reporter')talking=true;}
     else if(n.st<2&&state==='play'){g.fillStyle=n.st?'#9fb3c8':'#ffd23f';g.font='36px VT323, monospace';g.textAlign='center';g.fillText(n.st?'…':'!',n.x,top+10+Math.sin(T*4)*3);}}
   if(w.news&&w.news.show>0&&!talking&&inV(w.news.x,w.news.y,70))bubble(g,w.news.x,w.news.y-66,w.news.line,Math.min(1,w.news.show*2),cx,vw);
+  if(inV(p.x,p.y,100))drawPlayerHolo(g);
   g.font='24px VT323, monospace';g.lineWidth=4;g.strokeStyle='rgba(6,9,24,.85)';
   for(const q of texts){g.globalAlpha=clamp(q.l*2,0,1);g.strokeText(q.s,q.x,q.y);g.fillStyle=q.c;g.fillText(q.s,q.x,q.y);}g.globalAlpha=1;
   // screen-space finish
